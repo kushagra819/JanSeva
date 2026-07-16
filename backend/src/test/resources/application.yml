@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+
+janseva:
+  security:
+    jwt-secret: testsecretkey32byteslongmin12345678
+    encryption-key: 12345678901234567890123456789012
+  ai:
+    url: http://localhost:9999/analyze
+    provider: heuristic
+    auto-route-threshold: 0.85
+    review-threshold: 0.55
+  upload:
+    dir: ./test-uploads
+    max-mb: 10
+  admin:
+    email: admin@test.gov
+    password: Admin123!@#pass
+  cors:
+    allowed-origins: "*"
