@@ -11,7 +11,11 @@ export interface Notification {
 }
 
 export const getNotifications = () => {
-  return apiClient<Notification[]>('/notifications');
+  return apiClient<Array<Omit<Notification, 'isRead'> & { readAt?: string | null }>>('/notifications')
+    .then(notifications => notifications.map(notification => ({
+      ...notification,
+      isRead: Boolean(notification.readAt)
+    })));
 };
 
 export const markNotificationAsRead = (id: string) => {

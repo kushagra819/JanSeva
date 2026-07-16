@@ -13,6 +13,7 @@ public class Attachment {
     public String storedName;
     public String mimeType;
     public Long sizeBytes;
+    @Column(columnDefinition = "char(64)")
     public String sha256;
     public OffsetDateTime createdAt = OffsetDateTime.now();
 }

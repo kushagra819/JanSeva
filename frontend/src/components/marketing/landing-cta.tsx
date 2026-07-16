@@ -20,11 +20,11 @@ export function LandingCta() {
                 can be demonstrated end to end.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Button href="/raise" size="lg">
+                <Button href="/citizen/submit" size="lg">
                   Raise a Grievance
                   <ArrowRight className="h-4 w-4" />
                 </Button>
-                <Button href="/track" size="lg" variant="secondary">
+                <Button href="/citizen/complaints" size="lg" variant="secondary">
                   <SearchCheck className="h-4 w-4" />
                   Track Grievance
                 </Button>
@@ -42,9 +42,9 @@ export function LandingCta() {
               </div>
               <div className="rounded-[1.4rem] border border-white/8 bg-white/4 p-5">
                 <p className="text-sm uppercase tracking-[0.22em] text-[var(--muted)]">Next up</p>
-                <p className="mt-3 text-lg font-semibold text-white">AI-first grievance composer</p>
+                <p className="mt-3 text-lg font-semibold text-white">AI-first grievance composer is live</p>
                 <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                  The next phase will replace the placeholder raise route with the natural-language complaint experience.
+                  Submit natural-language complaints with location and evidence, then follow explainable routing and status updates.
                 </p>
               </div>
             </div>

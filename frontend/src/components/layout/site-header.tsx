@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { Menu, X } from "lucide-react";
 import { Button } from "../ui/button";
 import { routeGroups } from "../../data/foundation";
+import janSevaLogo from '../../assets/jandhwani-logo.jpeg';
 
 export function SiteHeader() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -11,13 +12,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 border-b border-white/6 bg-[rgba(5,11,20,0.72)] backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <Link to="/" className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(42,127,255,0.28),rgba(141,103,255,0.18))] text-sm font-semibold text-white">
-            JS
-          </div>
-          <div>
-            <p className="text-sm font-semibold tracking-[0.18em] text-[var(--muted-strong)] uppercase">JANSEVA AI</p>
-            <p className="text-xs text-[var(--muted)]">Smart civic grievance platform</p>
-          </div>
+          <img src={janSevaLogo} alt="JanDhwani" className="h-9 w-auto object-contain" />
         </Link>
         
         {/* Desktop Navigation */}
@@ -39,10 +34,10 @@ export function SiteHeader() {
         </nav>
         
         <div className="hidden lg:flex items-center gap-3">
-          <Button href="/track" variant="ghost">
+          <Button href="/citizen/complaints" variant="ghost">
             Track Grievance
           </Button>
-          <Button href="/citizen/complaint/new">Raise a Grievance</Button>
+          <Button href="/citizen/submit">Raise a Grievance</Button>
         </div>
 
         {/* Mobile menu button */}
@@ -80,10 +75,10 @@ export function SiteHeader() {
               </Link>
             ))}
             <div className="pt-4 flex flex-col gap-3 border-t border-white/10">
-              <Button href="/track" variant="ghost" className="w-full justify-center">
+              <Button href="/citizen/complaints" variant="ghost" className="w-full justify-center">
                 Track Grievance
               </Button>
-              <Button href="/citizen/complaint/new" className="w-full justify-center">
+              <Button href="/citizen/submit" className="w-full justify-center">
                 Raise a Grievance
               </Button>
             </div>

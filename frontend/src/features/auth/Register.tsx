@@ -10,12 +10,18 @@ import { Shield, Mail, Lock, User, Phone } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
+import janSevaLogo from '../../assets/jandhwani-logo.jpeg';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email'),
   phone: z.string().min(10, 'Please enter a valid phone number'),
-  password: z.string().min(8, 'Password must be at least 8 characters')
+  password: z.string()
+    .min(12, 'Password must be at least 12 characters')
+    .regex(/[A-Z]/, 'Password needs an uppercase letter')
+    .regex(/[a-z]/, 'Password needs a lowercase letter')
+    .regex(/[0-9]/, 'Password needs a number')
+    .regex(/[^A-Za-z0-9]/, 'Password needs a symbol')
 });
 
 type RegisterForm = z.infer<typeof registerSchema>;
@@ -49,21 +55,23 @@ export const Register = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--background)] px-4 py-10 sm:px-6">
+      <div className="absolute -left-40 top-0 h-96 w-96 rounded-full bg-blue-500/20 blur-3xl" />
+      <div className="absolute -right-40 bottom-0 h-96 w-96 rounded-full bg-violet-500/20 blur-3xl" />
+      <div className="relative w-full max-w-lg"><Link to="/" aria-label="JanDhwani home" className="mb-5 flex justify-center"><img src={janSevaLogo} alt="JanDhwani" className="h-10 w-auto object-contain" /></Link><Card className="rounded-[2rem] border-white/10 p-2 backdrop-blur-xl">
         <CardHeader className="space-y-1 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary-100">
-            <Shield className="h-6 w-6 text-primary-600" />
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-[linear-gradient(135deg,rgba(42,127,255,.3),rgba(141,103,255,.25))]">
+            <Shield className="h-7 w-7 text-[var(--accent-strong)]" />
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">Create an account</CardTitle>
           <CardDescription>
-            Join JanSeva to track and submit civic grievances
+            Join JanDhwani to track and submit civic grievances
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
             {serverError && (
-              <div className="rounded-md bg-danger/10 p-4 text-sm text-danger">
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300 sm:col-span-2">
                 {serverError}
               </div>
             )}
@@ -81,7 +89,7 @@ export const Register = () => {
                   {...register('name')}
                 />
               </div>
-              {errors.name && <p className="text-sm text-danger">{errors.name.message}</p>}
+              {errors.name && <p className="text-sm text-[var(--danger)]">{errors.name.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -98,7 +106,7 @@ export const Register = () => {
                   {...register('email')}
                 />
               </div>
-              {errors.email && <p className="text-sm text-danger">{errors.email.message}</p>}
+              {errors.email && <p className="text-sm text-[var(--danger)]">{errors.email.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -115,7 +123,7 @@ export const Register = () => {
                   {...register('phone')}
                 />
               </div>
-              {errors.phone && <p className="text-sm text-danger">{errors.phone.message}</p>}
+              {errors.phone && <p className="text-sm text-[var(--danger)]">{errors.phone.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -132,23 +140,23 @@ export const Register = () => {
                   {...register('password')}
                 />
               </div>
-              {errors.password && <p className="text-sm text-danger">{errors.password.message}</p>}
+              {errors.password && <p className="text-sm text-[var(--danger)]">{errors.password.message}</p>}
             </div>
 
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+            <Button type="submit" className="w-full sm:col-span-2" disabled={isSubmitting}>
               {isSubmitting ? 'Creating account...' : 'Create account'}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-[var(--muted)]">
             Already have an account?{' '}
-            <Link to="/login" className="font-semibold text-primary-600 hover:text-primary-500">
+            <Link to="/login" className="font-semibold text-[var(--accent-strong)] hover:text-white">
               Sign in
             </Link>
           </p>
         </CardFooter>
-      </Card>
+      </Card></div>
     </div>
   );
 };

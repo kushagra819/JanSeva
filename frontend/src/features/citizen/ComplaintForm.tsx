@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,8 +6,10 @@ import { z } from 'zod';
 import { Button } from '../../components/ui/button';
 import { LocationPicker } from '../../components/map/LocationPicker';
 import { submitGrievance, analyzeGrievance, uploadGrievanceAttachment } from '../../api/grievances';
-import { FileUp, Info, AlertTriangle, Send } from 'lucide-react';
+import { FileUp, Info, AlertTriangle, Mic, MicOff, Send } from 'lucide-react';
 import { cn } from '../../utils/utils';
+import { janSevaLanguages, languageByCode } from '../../data/languages';
+import { PanIndiaSpeechRecognitionProvider, type SpeechRecognitionProvider, type SpeechStatus } from '../speech/SpeechRecognitionProvider';
 
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -32,17 +34,61 @@ export function ComplaintForm() {
   const [attachment, setAttachment] = useState<File | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
+  const [speechStatus, setSpeechStatus] = useState<SpeechStatus>('idle');
+  const [interimTranscript, setInterimTranscript] = useState('');
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   
   const idempotencyKeyRef = useRef<string>(crypto.randomUUID());
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const speechProviderRef = useRef<SpeechRecognitionProvider | null>(null);
 
-  const { control, register, handleSubmit, formState: { errors } } = useForm<ComplaintFormData>({
+  const { control, register, handleSubmit, formState: { errors }, setValue, watch } = useForm<ComplaintFormData>({
     resolver: zodResolver(complaintSchema),
     defaultValues: {
-      language: 'Auto Detect',
+      language: 'auto',
     },
   });
+
+  const selectedLanguage = watch('language');
+  useEffect(() => () => {
+    speechProviderRef.current?.cancel();
+    if (attachmentPreview) URL.revokeObjectURL(attachmentPreview);
+  }, [attachmentPreview]);
+
+  const toggleVoiceInput = async () => {
+    if (speechStatus === 'listening') {
+      speechProviderRef.current?.stop();
+      return;
+    }
+    if (speechStatus === 'transcribing') return;
+    setVoiceError(null);
+    setInterimTranscript('');
+    const provider = new PanIndiaSpeechRecognitionProvider();
+    speechProviderRef.current = provider;
+    try {
+      await provider.start(languageByCode(selectedLanguage), {
+        onStatus: setSpeechStatus,
+        onInterim: setInterimTranscript,
+        onFinal: transcript => {
+          const current = watch('description')?.trim() || '';
+          setValue('description', `${current}${current ? ' ' : ''}${transcript}`.trim(), { shouldValidate: true, shouldDirty: true });
+          setInterimTranscript('');
+        },
+        onError: message => { setSpeechStatus('idle'); setInterimTranscript(''); setVoiceError(message); },
+      });
+    } catch (reason) {
+      setSpeechStatus('idle');
+      setVoiceError(reason instanceof Error ? reason.message : 'Voice input could not start.');
+    }
+  };
+
+  const onLanguageChange = () => {
+    if (speechStatus !== 'idle') speechProviderRef.current?.cancel();
+    setSpeechStatus('idle');
+    setInterimTranscript('');
+    setVoiceError(null);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,7 +129,7 @@ export function ComplaintForm() {
       const grievance = await submitGrievance(data, idempotencyKeyRef.current);
       
       // 3. Call Analyze
-      await analyzeGrievance(grievance.id);
+      await analyzeGrievance(grievance.id, data.description);
       
       // 4. Upload Attachment if present
       if (attachment) {
@@ -108,7 +154,7 @@ export function ComplaintForm() {
     <div className="max-w-3xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white mb-2">Raise a Grievance</h1>
-        <p className="text-[var(--muted)]">Please describe your issue in detail. JanSeva AI will route it to the appropriate department.</p>
+        <p className="text-[var(--muted)]">Please describe your issue in detail. JanDhwani AI will route it to the appropriate department.</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 bg-[var(--surface-strong)] p-6 md:p-8 rounded-2xl border border-[var(--border)]">
@@ -125,18 +171,10 @@ export function ComplaintForm() {
             <label className="block text-sm font-medium text-[var(--foreground)]">Complaint Details *</label>
             <div className="w-48">
               <select 
-                {...register('language')}
+                {...register('language', { onChange: onLanguageChange })}
                 className="w-full bg-[var(--background-alt)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[var(--accent)]"
               >
-                <option value="Auto Detect">Auto Detect Language</option>
-                <option value="English">English</option>
-                <option value="Hindi">Hindi (हिंदी)</option>
-                <option value="Marathi">Marathi (मराठी)</option>
-                <option value="Gujarati">Gujarati (ગુજરાતી)</option>
-                <option value="Tamil">Tamil (தமிழ்)</option>
-                <option value="Telugu">Telugu (తెలుగు)</option>
-                <option value="Kannada">Kannada (ಕನ್ನಡ)</option>
-                <option value="Bengali">Bengali (বাংলা)</option>
+                {janSevaLanguages.map(language => <option key={language.code} value={language.code}>{language.name} — {language.displayName}</option>)}
               </select>
             </div>
           </div>
@@ -146,12 +184,21 @@ export function ComplaintForm() {
             placeholder="Describe the problem clearly (e.g., 'There is a large pothole in front of...')"
             className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-4 py-3 text-white placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] resize-none"
           />
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" variant="secondary" disabled={speechStatus === 'transcribing'} onClick={() => void toggleVoiceInput()} className={cn('gap-2', speechStatus === 'listening' && 'border-red-400/40 bg-red-500/15 text-red-200')}>
+              {speechStatus === 'listening' ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              {speechStatus === 'listening' ? 'Stop and transcribe' : speechStatus === 'transcribing' ? 'Transcribing…' : 'Speak complaint'}
+            </Button>
+            {speechStatus === 'listening' && <span className="flex items-center gap-2 text-sm text-emerald-300"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />Listening in {languageByCode(selectedLanguage).name}…</span>}
+            {voiceError && <span className="text-sm text-amber-300">{voiceError}</span>}
+          </div>
+          {interimTranscript && <p className="rounded-xl border border-blue-400/20 bg-blue-500/10 p-3 text-sm text-blue-100" aria-live="polite"><b>Hearing:</b> {interimTranscript}</p>}
           {errors.description && (
             <p className="text-sm text-[var(--danger)]">{errors.description.message}</p>
           )}
           <p className="text-xs text-[var(--muted)] flex items-center gap-1.5">
             <Info className="h-3.5 w-3.5" />
-            Supports all Indian languages. AI will automatically understand and route it. Minimum 10 characters.
+            All 22 Scheduled Languages remain available for native-script typing. faster-whisper provides final voice text where supported; browser voice is used as a graceful fallback and never silently switches language.
           </p>
         </div>
 

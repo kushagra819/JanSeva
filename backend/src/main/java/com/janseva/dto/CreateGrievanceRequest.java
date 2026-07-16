@@ -12,4 +12,5 @@ public class CreateGrievanceRequest {
     public Double longitude;
     public String idempotencyKey;
     public String channel; // WEB, MOBILE, CALL_CENTRE, EMAIL
+    public String departmentOverride;
 }

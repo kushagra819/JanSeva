@@ -145,3 +145,23 @@ select {
     transition-duration: 0.01ms !important;
   }
 }
+
+.leaflet-container {
+  background: #090d12;
+  font-family: inherit;
+}
+
+.leaflet-tooltip.issue-count-tooltip {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: white;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.leaflet-tooltip.issue-count-tooltip::before {
+  display: none;
+}

@@ -14,7 +14,7 @@ export function LandingTransparency() {
         <SectionHeading
           eyebrow="Public transparency"
           title="A system people can trust because progress stays visible"
-          description="JanSeva AI is designed to explain what the system understood, where a grievance was routed, and how it moves through the lifecycle."
+          description="JanDhwani AI is designed to explain what the system understood, where a grievance was routed, and how it moves through the lifecycle."
         />
       </Reveal>
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">

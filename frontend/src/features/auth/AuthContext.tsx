@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { User, AuthResponse } from '../../types';
-import { apiClient, setAccessToken } from '../../api/client';
+import { apiClient, getRefreshToken, setAccessToken, setRefreshToken } from '../../api/client';
 
 interface AuthContextType {
   user: User | null;
@@ -41,15 +41,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = (data: AuthResponse) => {
     setAccessToken(data.accessToken);
+    setRefreshToken(data.refreshToken);
     setUser(data.user);
   };
 
   const logout = async () => {
     try {
-      await apiClient('/auth/logout', { method: 'POST' });
+      await apiClient('/auth/logout', {
+        method: 'POST',
+        body: JSON.stringify({ refreshToken: getRefreshToken() })
+      });
     } catch (e) {
     } finally {
       setAccessToken(null);
+      setRefreshToken(null);
       setUser(null);
     }
   };

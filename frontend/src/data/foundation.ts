@@ -1,9 +1,9 @@
 export const routeGroups = [
   { label: "Home", href: "/" },
-  { label: "Raise", href: "/raise" },
-  { label: "Citizen", href: "/citizen" },
-  { label: "Officer", href: "/officer" },
-  { label: "Admin", href: "/admin" },
+  { label: "Raise", href: "/citizen/submit" },
+  { label: "My complaints", href: "/citizen/complaints" },
+  { label: "Staff", href: "/staff" },
+  { label: "Sign in", href: "/login" },
 ];
 
 export const foundationMetrics = [

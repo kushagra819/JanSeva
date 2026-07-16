@@ -24,15 +24,15 @@ export function LandingHero() {
             Your City. Your Voice. <span className="text-gradient">AI That Gets It Heard.</span>
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-[var(--muted)] sm:text-lg">
-            Describe the problem. We understand it. We route it. You track it. JanSeva AI helps citizens file everyday
+            Describe the problem. We understand it. We route it. You track it. JanDhwani AI helps citizens file everyday
             complaints naturally while giving departments a faster, clearer path to action.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Button href="/raise" size="lg">
+            <Button href="/citizen/submit" size="lg">
               Raise a Grievance
               <ArrowRight className="h-4 w-4" />
             </Button>
-            <Button href="/track" size="lg" variant="secondary">
+            <Button href="/citizen/complaints" size="lg" variant="secondary">
               Track Grievance
             </Button>
           </div>

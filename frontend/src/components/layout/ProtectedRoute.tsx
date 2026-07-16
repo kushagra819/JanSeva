@@ -15,7 +15,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
       <div className="flex h-screen w-full items-center justify-center bg-slate-50">
         <div className="text-primary-600 flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-current border-t-transparent" />
-          <p className="text-sm font-medium">Loading JanSeva...</p>
+          <p className="text-sm font-medium">Loading JanDhwani...</p>
         </div>
       </div>
     );

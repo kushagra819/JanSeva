@@ -2,8 +2,8 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../../components/ui/button';
 import { Bell, FileText, PlusCircle, LogOut } from 'lucide-react';
-import { AppShell } from '../../components/layout/app-shell';
 import { cn } from '../../utils/utils';
+import janSevaLogo from '../../assets/jandhwani-logo.jpeg';
 
 export function CitizenLayout() {
   const { user, logout } = useAuth();
@@ -12,26 +12,22 @@ export function CitizenLayout() {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    navigate('/login?portal=citizen');
   };
 
   const navItems = [
-    { label: 'Submit Grievance', href: '/citizen/submit', icon: PlusCircle },
-    { label: 'My Complaints', href: '/citizen/complaints', icon: FileText },
+    { label: 'Raise issue', href: '/citizen/submit', icon: PlusCircle },
+    { label: 'Track', href: '/citizen/complaints', icon: FileText },
     { label: 'Notifications', href: '/citizen/notifications', icon: Bell },
   ];
 
   return (
-    <AppShell>
       <div className="flex min-h-screen bg-[var(--background)]">
         {/* Sidebar for Desktop */}
         <aside className="hidden w-64 flex-col border-r border-[var(--border)] bg-[var(--surface)] md:flex">
-          <div className="flex h-16 items-center gap-3 border-b border-[var(--border)] px-6">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(42,127,255,0.28),rgba(141,103,255,0.18))] text-xs font-semibold text-white">
-              JS
-            </div>
-            <span className="font-semibold text-[var(--foreground)] tracking-wide">JanSeva Citizen</span>
-          </div>
+          <Link to="/" aria-label="JanDhwani home" className="flex h-16 items-center border-b border-[var(--border)] px-5">
+            <img src={janSevaLogo} alt="JanDhwani" className="h-8 w-auto object-contain" />
+          </Link>
           <div className="flex flex-1 flex-col overflow-y-auto px-4 py-6">
             <nav className="flex-1 space-y-2">
               {navItems.map((item) => {
@@ -70,12 +66,7 @@ export function CitizenLayout() {
         {/* Mobile Header & Bottom Nav */}
         <div className="flex flex-1 flex-col">
           <header className="flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 md:hidden">
-            <div className="flex items-center gap-2">
-               <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(42,127,255,0.28),rgba(141,103,255,0.18))] text-xs font-semibold text-white">
-                JS
-              </div>
-              <span className="font-semibold text-white">JanSeva</span>
-            </div>
+            <Link to="/" aria-label="JanDhwani home"><img src={janSevaLogo} alt="JanDhwani" className="h-8 w-auto object-contain" /></Link>
             <Button variant="ghost" size="sm" onClick={handleLogout} className="text-red-400">
               <LogOut className="h-4 w-4" />
             </Button>
@@ -106,6 +97,5 @@ export function CitizenLayout() {
           </nav>
         </div>
       </div>
-    </AppShell>
   );
 }

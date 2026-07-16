@@ -44,7 +44,7 @@ public class SecurityConfigCustom {
                     "/api/v1/auth/refresh",
                     "/api/v1/auth/logout"
                 ).permitAll()
-                .requestMatchers("/api/v1/meta").permitAll()
+                .requestMatchers("/api/v1/meta", "/api/v1/public/**").permitAll()
                 .requestMatchers("/actuator/health", "/error").permitAll()
                 .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
                 .requestMatchers("/api/v1/analytics/**").hasAnyAuthority(

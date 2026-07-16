@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -23,15 +24,17 @@ public class StaffService {
     private final UserRepository userRepo;
     private final StatusStateMachine stateMachine;
     private final NotificationService notificationService;
+    private final EncryptionService encryptionService;
 
     public StaffService(GrievanceRepository grievanceRepo, TimelineEventRepository timelineRepo,
                         UserRepository userRepo, StatusStateMachine stateMachine,
-                        NotificationService notificationService) {
+                        NotificationService notificationService, EncryptionService encryptionService) {
         this.grievanceRepo = grievanceRepo;
         this.timelineRepo = timelineRepo;
         this.userRepo = userRepo;
         this.stateMachine = stateMachine;
         this.notificationService = notificationService;
+        this.encryptionService = encryptionService;
     }
 
     public List<Grievance> getStaffGrievances(String callerDept, String callerRole,
@@ -53,6 +56,19 @@ public class StaffService {
         }
 
         return results;
+    }
+
+    public List<UserResponse> getAssignableOfficers(String callerDept, String callerRole) {
+        return userRepo.findAll().stream()
+            .filter(user -> user.active)
+            .filter(user -> "OFFICER".equals(user.role) || "DEPARTMENT_HEAD".equals(user.role))
+            .filter(user -> "ADMIN".equals(callerRole) || "COMMISSIONER".equals(callerRole)
+                || Objects.equals(callerDept, user.departmentCode))
+            .map(user -> new UserResponse(
+                user.id.toString(), user.name, user.email, user.role, user.departmentCode,
+                user.active, user.createdAt != null ? user.createdAt.toString() : null
+            ))
+            .toList();
     }
 
     public Grievance assignOfficer(UUID grievanceId, UUID officerId, UUID actorId, String actorDept, String actorRole) {
@@ -211,15 +227,26 @@ public class StaffService {
             grievances = grievanceRepo.findAll();
         }
 
-        // Return privacy-safe data only
+        boolean publicView = "PUBLIC".equals(callerRole);
         return grievances.stream()
             .filter(g -> g.publicLatitude != null && g.publicLongitude != null)
-            .map(g -> new MapIssueResponse(
-                g.id, g.trackingCode,
-                g.publicLatitude, g.publicLongitude,
-                g.status, g.priority, g.departmentCode, g.taxonomyCode,
-                g.createdAt
-            ))
+            .map(g -> {
+                BigDecimal latitude = g.publicLatitude;
+                BigDecimal longitude = g.publicLongitude;
+                if (!publicView && g.exactLocationCipher != null) {
+                    try {
+                        String[] coordinates = encryptionService.decrypt(g.exactLocationCipher).split(",", 2);
+                        latitude = new BigDecimal(coordinates[0]);
+                        longitude = new BigDecimal(coordinates[1]);
+                    } catch (Exception ignored) {
+                        // Rounded coordinates remain a safe operational fallback.
+                    }
+                }
+                return new MapIssueResponse(
+                    g.id, g.trackingCode, latitude, longitude,
+                    g.status, g.priority, g.departmentCode, g.taxonomyCode, g.createdAt
+                );
+            })
             .collect(Collectors.toList());
     }
 

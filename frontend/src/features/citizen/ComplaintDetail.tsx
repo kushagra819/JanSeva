@@ -1,19 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
-import { getGrievanceById, getGrievanceAnalysis, getGrievanceTimeline } from '../../api/grievances';
-import type { Grievance, AIAnalysis, TimelineEvent } from '../../types';
 import { format } from 'date-fns';
-import { RefreshCw, AlertTriangle, CheckCircle, ShieldAlert, BrainCircuit, User, Settings, Info, MapPin } from 'lucide-react';
-import { cn } from '../../utils/utils';
+import { AlertTriangle, Building2, CheckCircle, Clock3, MapPin, RefreshCw, Route, ShieldCheck } from 'lucide-react';
+import { getGrievanceById, getGrievanceTimeline } from '../../api/grievances';
+import type { Grievance, TimelineEvent } from '../../types';
 import { Button } from '../../components/ui/button';
+import { cn } from '../../utils/utils';
+
+const readable = (value?: string) => value?.replaceAll('_', ' ') || 'Awaiting assignment';
+
+const statusStyle = (status: string) => {
+  if (status === 'RESOLVED') return 'border-emerald-400/25 bg-emerald-500/10 text-emerald-300';
+  if (status === 'REJECTED') return 'border-red-400/25 bg-red-500/10 text-red-300';
+  if (status === 'IN_PROGRESS') return 'border-amber-400/25 bg-amber-500/10 text-amber-200';
+  return 'border-blue-400/25 bg-blue-500/10 text-blue-300';
+};
+
+const urgency = (priority: string) => priority === 'EMERGENCY'
+  ? { label: 'Immediate action', style: 'border-red-400/30 bg-red-500/12 text-red-300', detail: 'A safety-risk signal was detected and the department is expected to acknowledge it immediately.' }
+  : priority === 'HIGH'
+    ? { label: 'Urgent', style: 'border-orange-400/30 bg-orange-500/12 text-orange-200', detail: 'A major service disruption or escalating condition was detected and this report is prioritized.' }
+    : { label: 'Routine', style: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-300', detail: 'The issue is in the normal departmental work queue.' };
 
 export function ComplaintDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const isNew = searchParams.get('new') === 'true';
-
   const [grievance, setGrievance] = useState<Grievance | null>(null);
-  const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,255 +35,40 @@ export function ComplaintDetail() {
     setIsLoading(true);
     setError(null);
     try {
-      const [gData, aData, tData] = await Promise.all([
+      const [issue, events] = await Promise.all([
         getGrievanceById(id),
-        getGrievanceAnalysis(id).catch(() => null), // Analysis might not exist yet or fail
-        getGrievanceTimeline(id).catch(() => []), // Timeline might fail
+        getGrievanceTimeline(id).catch(() => []),
       ]);
-      setGrievance(gData);
-      setAnalysis(aData);
-      setTimeline(tData.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
-    } catch (err: any) {
-      setError(err?.data?.message || 'Failed to load complaint details.');
+      setGrievance(issue);
+      setTimeline(events.sort((first, second) => new Date(first.createdAt).getTime() - new Date(second.createdAt).getTime()));
+    } catch (reason: any) {
+      setError(reason?.data?.message || 'Failed to load complaint details.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [id]);
+  useEffect(() => { void fetchData(); }, [id]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'RECEIVED':
-      case 'PROCESSING':
-      case 'PENDING_REVIEW': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-      case 'ROUTED': return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
-      case 'IN_PROGRESS': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
-      case 'RESOLVED': return 'bg-green-500/10 text-green-400 border-green-500/20';
-      case 'REJECTED': return 'bg-red-500/10 text-red-400 border-red-500/20';
-      default: return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
-    }
-  };
+  if (isLoading) return <div className="flex flex-col items-center justify-center py-20"><RefreshCw className="mb-4 h-8 w-8 animate-spin text-[var(--accent)]" /><p className="text-[var(--muted)]">Loading complaint…</p></div>;
+  if (error || !grievance) return <div className="mx-auto flex max-w-md flex-col items-center justify-center py-20 text-center"><span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10 text-red-300"><AlertTriangle className="h-8 w-8" /></span><h2 className="text-xl font-semibold">Complaint unavailable</h2><p className="mt-2 text-sm text-[var(--muted)]">{error || 'Complaint not found.'}</p><Button onClick={() => void fetchData()} variant="secondary" className="mt-6">Retry</Button></div>;
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'HIGH': return 'text-orange-400';
-      case 'EMERGENCY': return 'text-red-500';
-      default: return 'text-[var(--success)]';
-    }
-  };
+  const priority = urgency(grievance.priority);
+  return <div className="mx-auto max-w-5xl space-y-6">
+    {searchParams.get('new') === 'true' && <div className="flex items-start gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4"><CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" /><div><h2 className="font-semibold text-emerald-200">Complaint submitted</h2><p className="mt-1 text-sm text-emerald-100/70">Save tracking code <b>{grievance.trackingCode}</b>. Updates will appear here and in Notifications.</p></div></div>}
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <RefreshCw className="h-8 w-8 text-[var(--accent)] animate-spin mb-4" />
-        <p className="text-[var(--muted)]">Loading complaint details...</p>
-      </div>
-    );
-  }
+    <header className="rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] p-5 sm:p-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-[var(--muted)]">Tracking code</p><h1 className="mt-2 break-all font-mono text-2xl font-bold sm:text-3xl">{grievance.trackingCode}</h1><p className="mt-2 text-sm text-[var(--muted)]">Submitted {format(new Date(grievance.createdAt), 'MMMM d, yyyy · h:mm a')}</p></div><span className={cn('w-fit rounded-full border px-3 py-1.5 text-xs font-semibold', statusStyle(grievance.status))}>{readable(grievance.status)}</span></div>
+    </header>
 
-  if (error || !grievance) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center max-w-md mx-auto">
-        <div className="h-16 w-16 bg-[var(--danger)]/10 text-[var(--danger)] rounded-full flex items-center justify-center mb-4">
-          <AlertTriangle className="h-8 w-8" />
-        </div>
-        <h3 className="text-xl font-medium text-white mb-2">Error Loading Details</h3>
-        <p className="text-[var(--muted)] mb-6">{error || 'Complaint not found.'}</p>
-        <Button onClick={fetchData} variant="secondary">Retry</Button>
-      </div>
-    );
-  }
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <main className="space-y-6">
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] p-5 sm:p-6"><h2 className="text-lg font-semibold">Issue details</h2><p className="mt-4 whitespace-pre-wrap text-[15px] leading-7 text-white/90">{grievance.description || 'Complaint details are unavailable.'}</p><div className="mt-6 grid gap-4 border-t border-[var(--border)] pt-5 sm:grid-cols-2"><div className="flex gap-3"><MapPin className="mt-0.5 h-5 w-5 shrink-0 text-blue-300" /><div><p className="text-xs uppercase tracking-wider text-[var(--muted)]">Location</p><p className="mt-1 text-sm">{[grievance.locality, grievance.district].filter(Boolean).join(', ') || 'Pinned location'}</p></div></div><div className="flex gap-3"><Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-blue-300" /><div><p className="text-xs uppercase tracking-wider text-[var(--muted)]">Last known status</p><p className="mt-1 text-sm">{readable(grievance.status)}</p></div></div></div></section>
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      {/* Success Banner if newly submitted */}
-      {isNew && (
-        <div className="bg-[var(--success)]/10 border border-[var(--success)]/20 rounded-xl p-4 flex items-start gap-3">
-          <CheckCircle className="h-5 w-5 text-[var(--success)] shrink-0 mt-0.5" />
-          <div>
-            <h3 className="text-[var(--success)] font-medium">Grievance Submitted Successfully</h3>
-            <p className="text-sm text-[var(--success)]/80 mt-1">Your tracking code is <strong>{grievance.trackingCode}</strong>. Our AI has already analyzed it and routed it to the appropriate department.</p>
-          </div>
-        </div>
-      )}
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] p-5 sm:p-6"><div className="flex items-center gap-2"><Route className="h-5 w-5 text-violet-300" /><h2 className="text-lg font-semibold">Where it is going</h2></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><div className="rounded-xl bg-black/20 p-4"><p className="text-xs uppercase tracking-wider text-[var(--muted)]">Responsible department</p><p className="mt-2 flex items-center gap-2 font-semibold"><Building2 className="h-4 w-4 text-blue-300" />{readable(grievance.departmentCode)}</p></div><div className="rounded-xl bg-black/20 p-4"><p className="text-xs uppercase tracking-wider text-[var(--muted)]">Issue category</p><p className="mt-2 font-semibold">{readable(grievance.taxonomyCode?.split('.').pop())}</p></div></div><div className={cn('mt-4 rounded-xl border p-4', priority.style)}><p className="font-semibold">{priority.label}</p><p className="mt-1 text-xs leading-5 opacity-80">{priority.detail}</p></div>{grievance.status === 'PENDING_REVIEW' && <p className="mt-4 flex gap-2 rounded-xl bg-amber-500/8 p-3 text-xs text-amber-100/80"><ShieldCheck className="h-4 w-4 shrink-0" />A department officer will verify the routing before work begins.</p>}</section>
+      </main>
 
-      {/* Header Info */}
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-2xl font-bold text-white">Tracking: {grievance.trackingCode}</h1>
-            <span className={cn("text-xs font-medium px-2.5 py-1 rounded-full border", getStatusColor(grievance.status))}>
-              {grievance.status.replace('_', ' ')}
-            </span>
-          </div>
-          <p className="text-[var(--muted)] text-sm">
-            Submitted on {format(new Date(grievance.createdAt), 'MMMM d, yyyy • h:mm a')}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Main Content Area */}
-        <div className="md:col-span-2 space-y-6">
-          
-          {/* Complaint Details Card */}
-          <div className="bg-[var(--surface-strong)] border border-[var(--border)] rounded-2xl p-6">
-            <h2 className="text-lg font-medium text-white mb-4">Complaint Details</h2>
-            <p className="text-white whitespace-pre-wrap">{grievance.description}</p>
-            
-            <div className="mt-6 pt-6 border-t border-[var(--border)] grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Location</p>
-                <div className="flex items-start gap-2 text-sm text-white">
-                  <MapPin className="h-4 w-4 text-[var(--accent)] shrink-0 mt-0.5" />
-                  <span>{grievance.locality}, {grievance.district}</span>
-                </div>
-              </div>
-              {grievance.latitude && grievance.longitude && (
-                <div>
-                  <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Coordinates</p>
-                  <p className="text-sm font-mono text-white">{grievance.latitude.toFixed(5)}, {grievance.longitude.toFixed(5)}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Language</p>
-                <p className="text-sm text-white">{grievance.language}</p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Channel</p>
-                <p className="text-sm text-white">{grievance.channel}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* AI Analysis Result */}
-          {analysis && (
-            <div className="bg-[var(--surface-strong)] border border-[var(--accent)]/30 rounded-2xl overflow-hidden relative">
-              <div className="absolute top-0 left-0 w-1 h-full bg-[linear-gradient(180deg,var(--accent)_0%,var(--accent-ai)_100%)]"></div>
-              
-              <div className="p-6">
-                <div className="flex items-center gap-2 mb-6">
-                  <BrainCircuit className="h-5 w-5 text-[var(--accent-ai)]" />
-                  <h2 className="text-lg font-medium text-white">AI Routing Suggestion</h2>
-                </div>
-                
-                {analysis.requiresHumanReview && (
-                  <div className="mb-6 bg-[var(--warning)]/10 border border-[var(--warning)]/20 rounded-lg p-3 flex gap-3 text-sm text-[var(--warning)]">
-                    <ShieldAlert className="h-5 w-5 shrink-0" />
-                    <p><strong>Human Review Required:</strong> This grievance requires manual officer verification before processing.</p>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Predicted Department</p>
-                    <p className="text-sm font-medium text-white">{analysis.departmentCode.replace('_', ' ')}</p>
-                    <p className="text-xs text-[var(--muted)] mt-1">
-                      {Math.round(analysis.confidence * 100)}% confidence
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Predicted Category</p>
-                    <p className="text-sm font-medium text-white">{analysis.taxonomyCode}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Priority</p>
-                    <p className={cn("text-sm font-bold", getPriorityColor(analysis.priority))}>
-                      {analysis.priority}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-4 mb-6">
-                  <div>
-                    <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Routing Explanation</p>
-                    <p className="text-sm text-white/90">{analysis.explanation}</p>
-                  </div>
-                  {(analysis.priority === 'HIGH' || analysis.priority === 'EMERGENCY') && (
-                    <div>
-                      <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Priority Explanation</p>
-                      <p className="text-sm text-white/90">{analysis.priorityReason}</p>
-                    </div>
-                  )}
-                </div>
-
-                <details className="group cursor-pointer">
-                  <summary className="text-xs text-[var(--accent)] font-medium list-none flex items-center gap-1 hover:text-[var(--accent-strong)]">
-                    <Info className="h-3.5 w-3.5" />
-                    Show technical details & alternative predictions
-                  </summary>
-                  <div className="mt-4 p-4 bg-[var(--background)] rounded-xl border border-[var(--border)] text-xs text-[var(--muted)] space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div><span className="font-medium">Provider:</span> {analysis.provider}</div>
-                      <div><span className="font-medium">Model:</span> {analysis.modelVersion}</div>
-                      <div><span className="font-medium">Decision:</span> {analysis.decision}</div>
-                    </div>
-                    <div>
-                      <p className="font-medium mb-1">Top Predictions:</p>
-                      <ul className="list-disc pl-4 space-y-1">
-                        {analysis.topPredictions.map((pred, i) => (
-                          <li key={i}>{pred.departmentCode} ({pred.taxonomyCode}): {Math.round(pred.confidence * 100)}%</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <p className="italic text-white/40">Note: This is an AI recommendation, not a final government decision.</p>
-                  </div>
-                </details>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Sidebar: Timeline */}
-        <div className="space-y-6">
-          <div className="bg-[var(--surface-strong)] border border-[var(--border)] rounded-2xl p-6">
-            <h2 className="text-lg font-medium text-white mb-6">Tracking Timeline</h2>
-            
-            {timeline.length === 0 ? (
-              <p className="text-sm text-[var(--muted)]">No events recorded yet.</p>
-            ) : (
-              <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-[var(--border)] before:to-transparent">
-                {timeline.map((event) => {
-                  const isCitizen = event.type === 'CITIZEN';
-                  const isSystem = event.type === 'SYSTEM';
-                  const Icon = isCitizen ? User : isSystem ? Settings : ShieldAlert;
-                  
-                  return (
-                    <div key={event.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                      {/* Icon */}
-                      <div className="flex items-center justify-center w-10 h-10 rounded-full border border-[var(--border)] bg-[var(--surface)] text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                        <Icon className={cn("h-4 w-4", isSystem && "text-[var(--accent-ai)]", isCitizen && "text-[var(--accent)]")} />
-                      </div>
-                      
-                      {/* Content */}
-                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-[var(--background)] p-4 rounded-xl border border-[var(--border)]">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className={cn("text-xs font-semibold px-2 py-0.5 rounded", getStatusColor(event.status))}>
-                            {event.status.replace('_', ' ')}
-                          </span>
-                        </div>
-                        <time className="text-xs text-[var(--muted)] block mb-2 font-mono">
-                          {format(new Date(event.createdAt), 'MMM d, h:mm a')}
-                        </time>
-                        <div className="text-sm text-white/90">
-                          {event.note || (
-                            <span className="italic text-[var(--muted)]">
-                              Status updated to {event.status.replace('_', ' ')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <aside className="h-fit rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] p-5 sm:p-6"><h2 className="text-lg font-semibold">Tracking timeline</h2>{timeline.length === 0 ? <p className="mt-5 text-sm text-[var(--muted)]">No updates recorded yet.</p> : <ol className="mt-6 space-y-0">{timeline.map((event, index) => <li key={event.id} className="flex gap-3"><div className="flex flex-col items-center"><span className={cn('mt-1 h-3 w-3 shrink-0 rounded-full border-2', index === timeline.length - 1 ? 'border-blue-300 bg-blue-400' : 'border-slate-500 bg-slate-700')} />{index < timeline.length - 1 && <span className="min-h-16 w-px flex-1 bg-[var(--border)]" />}</div><div className="min-w-0 pb-6"><div className="flex flex-wrap items-center gap-2"><span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', statusStyle(event.status))}>{readable(event.status)}</span><time className="text-[11px] text-[var(--muted)]">{format(new Date(event.createdAt), 'MMM d, h:mm a')}</time></div><p className="mt-2 break-words text-sm leading-5 text-white/85">{event.note || `Status updated to ${readable(event.status)}.`}</p></div></li>)}</ol>}</aside>
     </div>
-  );
+  </div>;
 }

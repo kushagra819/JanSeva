@@ -11,6 +11,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -123,7 +127,7 @@ public class FileService {
                 .orElseThrow(() -> new ApiException("NOT_FOUND", HttpStatus.NOT_FOUND, "Grievance not found."));
 
         // Authorization check
-        boolean isOwner = callerId.equals(g.citizenId);
+        boolean isOwner = callerId != null && callerId.equals(g.citizenId);
         boolean isStaff = "OFFICER".equals(callerRole) || "DEPARTMENT_HEAD".equals(callerRole)
                         || "ADMIN".equals(callerRole) || "COMMISSIONER".equals(callerRole);
         boolean isDeptMatch = callerDept != null && callerDept.equals(g.departmentCode);
@@ -132,8 +136,51 @@ public class FileService {
             throw new ApiException("FORBIDDEN", HttpStatus.FORBIDDEN, "You are not authorized to download this file.");
         }
 
+        return readDecrypted(a);
+    }
+
+    /** Only anonymous-report image evidence is eligible for the public map. */
+    public Attachment getPublicImage(UUID grievanceId) {
+        Grievance grievance = grievanceRepo.findById(grievanceId)
+                .orElseThrow(() -> new ApiException("NOT_FOUND", HttpStatus.NOT_FOUND, "Grievance not found."));
+        if (grievance.citizenId != null) {
+            throw new ApiException("NOT_FOUND", HttpStatus.NOT_FOUND, "Public image not available.");
+        }
+        return attachmentRepo.findByGrievanceId(grievanceId).stream()
+                .filter(a -> a.mimeType != null && a.mimeType.startsWith("image/"))
+                .findFirst()
+                .orElseThrow(() -> new ApiException("NOT_FOUND", HttpStatus.NOT_FOUND, "Public image not available."));
+    }
+
+    public boolean hasPublicImage(UUID grievanceId) {
+        return grievanceRepo.findById(grievanceId)
+                .filter(g -> g.citizenId == null)
+                .map(g -> attachmentRepo.findByGrievanceId(grievanceId).stream()
+                        .anyMatch(a -> a.mimeType != null && a.mimeType.startsWith("image/")))
+                .orElse(false);
+    }
+
+    /** Decrypt and remove common image metadata before returning anonymous evidence publicly. */
+    public byte[] downloadPublicImage(UUID grievanceId) {
+        Attachment attachment = getPublicImage(grievanceId);
+        byte[] original = readDecrypted(attachment);
+        if (!"image/jpeg".equals(attachment.mimeType) && !"image/png".equals(attachment.mimeType)) {
+            return original;
+        }
         try {
-            Path filePath = Paths.get(uploadDir).resolve(a.storedName);
+            BufferedImage image = ImageIO.read(new ByteArrayInputStream(original));
+            if (image == null) return original;
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            ImageIO.write(image, "image/png".equals(attachment.mimeType) ? "png" : "jpg", output);
+            return output.toByteArray();
+        } catch (IOException ignored) {
+            return original;
+        }
+    }
+
+    private byte[] readDecrypted(Attachment attachment) {
+        try {
+            Path filePath = Paths.get(uploadDir).resolve(attachment.storedName);
             String encryptedContent = Files.readString(filePath);
             String decrypted = encryptionService.decrypt(encryptedContent);
             return java.util.Base64.getDecoder().decode(decrypted);

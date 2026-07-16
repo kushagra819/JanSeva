@@ -11,6 +11,9 @@ public class AiAnalysisResponse {
     public Double confidence;
     public String priority;
     public String priorityReason;
+    public String detectedLanguage;
+    public String sentiment;
+    public Integer severityScore;
     public List<String> urgentReasons;
     public String explanation;
     public List<Prediction> topPredictions;

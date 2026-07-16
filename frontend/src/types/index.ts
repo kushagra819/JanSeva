@@ -11,7 +11,17 @@ export type GrievanceStatus =
 
 export type Priority = 'NORMAL' | 'HIGH' | 'EMERGENCY';
 
-export type DepartmentCode = 'ELECTRICITY' | 'WATER' | 'ROADS' | 'SANITATION' | 'PUBLIC_SERVICES';
+export type DepartmentCode =
+  | 'ROADS'
+  | 'WATER'
+  | 'ELECTRICITY'
+  | 'SANITATION'
+  | 'PUBLIC_SAFETY'
+  | 'PARKS_HORTICULTURE'
+  | 'HEALTH'
+  | 'BUILDING_URBAN_PLANNING'
+  | 'TRANSPORT'
+  | 'PUBLIC_SERVICES';
 
 export type Channel = 'WEB' | 'MOBILE' | 'CALL_CENTRE' | 'EMAIL';
 
@@ -34,10 +44,10 @@ export interface User {
 export interface Grievance {
   id: string;
   trackingCode: string;
-  description: string;
-  language: string;
-  district: string;
-  locality: string;
+  description?: string;
+  language?: string;
+  district?: string;
+  locality?: string;
   latitude?: number;
   longitude?: number;
   status: GrievanceStatus;
@@ -48,27 +58,35 @@ export interface Grievance {
   citizenId: string;
   createdAt: string;
   updatedAt: string;
+  confidence?: number;
+  assignedOfficerId?: string;
+  slaDueAt?: string;
+  detectedLanguage?: string;
+  sentiment?: 'FRUSTRATED' | 'DISTRESSED' | 'CONCERNED' | 'NEUTRAL' | 'CALM';
   hasAttachment?: boolean;
 }
 
 export interface AIAnalysis {
   grievanceId: string;
-  provider: string;
-  modelVersion: string;
+  provider?: string;
+  modelVersion?: string;
   taxonomyCode: string;
   departmentCode: DepartmentCode;
   confidence: number;
   priority: Priority;
-  priorityReason: string;
-  urgentReasons: string[];
-  explanation: string;
-  topPredictions: Array<{
+  priorityReason?: string;
+  detectedLanguage?: string;
+  sentiment?: 'FRUSTRATED' | 'DISTRESSED' | 'CONCERNED' | 'NEUTRAL' | 'CALM';
+  severityScore?: number;
+  urgentReasons?: string[];
+  explanation?: string;
+  topPredictions?: Array<{
     departmentCode: DepartmentCode;
     taxonomyCode: string;
     confidence: number;
   }>;
-  decision: 'AUTO_ROUTE' | 'HUMAN_REVIEW' | string;
-  requiresHumanReview: boolean;
+  decision?: 'AUTO_ROUTE' | 'HUMAN_REVIEW' | string;
+  requiresHumanReview?: boolean;
 }
 
 export interface TimelineEvent {
@@ -82,5 +100,28 @@ export interface TimelineEvent {
 
 export interface AuthResponse {
   accessToken: string;
+  refreshToken: string;
   user: User;
+}
+
+export interface AnalyticsSummary {
+  totalComplaints: number;
+  byStatus: Record<string, number>;
+  byDepartment: Record<string, number>;
+  byPriority: Record<string, number>;
+  resolvedCount: number;
+  pendingCount: number;
+  emergencyCount: number;
+}
+
+export interface MapIssue {
+  id: string;
+  trackingCode: string;
+  publicLatitude: number;
+  publicLongitude: number;
+  status: GrievanceStatus;
+  priority: Priority;
+  departmentCode?: DepartmentCode;
+  taxonomyCode?: string;
+  createdAt: string;
 }

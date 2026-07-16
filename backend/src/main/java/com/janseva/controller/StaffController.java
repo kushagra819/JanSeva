@@ -3,8 +3,10 @@ package com.janseva.controller;
 import com.janseva.dto.*;
 import com.janseva.entity.Grievance;
 import com.janseva.service.StaffService;
+import com.janseva.service.GrievanceService;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
@@ -15,13 +17,15 @@ import java.util.UUID;
 @RequestMapping("/api/v1")
 public class StaffController {
     private final StaffService staffService;
+    private final GrievanceService grievanceService;
 
-    public StaffController(StaffService staffService) {
+    public StaffController(StaffService staffService, GrievanceService grievanceService) {
         this.staffService = staffService;
+        this.grievanceService = grievanceService;
     }
 
     @GetMapping("/staff/grievances")
-    public List<Grievance> listGrievances(
+    public List<GrievanceResponse> listGrievances(
             Authentication auth,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String priority,
@@ -32,11 +36,17 @@ public class StaffController {
         String callerDept = getDeptFromAuth(auth);
         String callerRole = getRoleFromAuth(auth);
 
-        return staffService.getStaffGrievances(callerDept, callerRole, status, priority, departmentCode, limit);
+        return staffService.getStaffGrievances(callerDept, callerRole, status, priority, departmentCode, limit)
+            .stream()
+            .filter(g -> query == null || query.isBlank()
+                || g.trackingCode.toLowerCase().contains(query.toLowerCase())
+                || grievanceService.toResponse(g).description.toLowerCase().contains(query.toLowerCase()))
+            .map(grievanceService::toResponse)
+            .toList();
     }
 
     @PostMapping("/grievances/{id}/review")
-    public Grievance reviewGrievance(
+    public GrievanceResponse reviewGrievance(
             Authentication auth,
             @PathVariable UUID id,
             @Valid @RequestBody ReviewRequest req) {
@@ -45,11 +55,12 @@ public class StaffController {
         String actorDept = getDeptFromAuth(auth);
         String actorRole = getRoleFromAuth(auth);
 
-        return staffService.reviewGrievance(id, req, actorId, actorDept, actorRole);
+        return grievanceService.toResponse(staffService.reviewGrievance(id, req, actorId, actorDept, actorRole));
     }
 
     @PatchMapping("/staff/grievances/{id}/assign")
-    public Grievance assignOfficer(
+    @PreAuthorize("hasAnyRole('DEPARTMENT_HEAD','ADMIN','COMMISSIONER')")
+    public GrievanceResponse assignOfficer(
             Authentication auth,
             @PathVariable UUID id,
             @Valid @RequestBody AssignRequest req) {
@@ -58,11 +69,11 @@ public class StaffController {
         String actorDept = getDeptFromAuth(auth);
         String actorRole = getRoleFromAuth(auth);
 
-        return staffService.assignOfficer(id, req.officerId, actorId, actorDept, actorRole);
+        return grievanceService.toResponse(staffService.assignOfficer(id, req.officerId, actorId, actorDept, actorRole));
     }
 
     @PatchMapping("/staff/grievances/{id}/status")
-    public Grievance updateStatus(
+    public GrievanceResponse updateStatus(
             Authentication auth,
             @PathVariable UUID id,
             @Valid @RequestBody StatusUpdateRequest req) {
@@ -71,7 +82,7 @@ public class StaffController {
         String actorDept = getDeptFromAuth(auth);
         String actorRole = getRoleFromAuth(auth);
 
-        return staffService.updateStatus(id, req.status, req.message, actorId, actorDept, actorRole);
+        return grievanceService.toResponse(staffService.updateStatus(id, req.status, req.message, actorId, actorDept, actorRole));
     }
 
     @GetMapping("/staff/map/issues")
@@ -79,6 +90,11 @@ public class StaffController {
         String callerDept = getDeptFromAuth(auth);
         String callerRole = getRoleFromAuth(auth);
         return staffService.getMapIssues(callerDept, callerRole);
+    }
+
+    @GetMapping("/staff/officers")
+    public List<UserResponse> getAssignableOfficers(Authentication auth) {
+        return staffService.getAssignableOfficers(getDeptFromAuth(auth), getRoleFromAuth(auth));
     }
 
     @GetMapping("/analytics/summary")

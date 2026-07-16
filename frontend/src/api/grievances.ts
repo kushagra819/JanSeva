@@ -13,10 +13,13 @@ export interface SubmitGrievancePayload {
 export const submitGrievance = (payload: SubmitGrievancePayload, idempotencyKey: string) => {
   return apiClient<Grievance>('/grievances', {
     method: 'POST',
-    headers: {
-      'Idempotency-Key': idempotencyKey,
-    },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      text: payload.description,
+      latitude: payload.latitude,
+      longitude: payload.longitude,
+      idempotencyKey,
+      channel: 'WEB'
+    }),
   });
 };
 
@@ -28,9 +31,10 @@ export const getGrievanceById = (id: string) => {
   return apiClient<Grievance>(`/grievances/${id}`);
 };
 
-export const analyzeGrievance = (id: string) => {
-  return apiClient<{ analysisId: string }>(`/grievances/${id}/analyze`, {
+export const analyzeGrievance = (id: string, text: string) => {
+  return apiClient<AIAnalysis>(`/grievances/${id}/analyze`, {
     method: 'POST',
+    body: JSON.stringify({ text }),
   });
 };
 
@@ -49,5 +53,21 @@ export const uploadGrievanceAttachment = (id: string, file: File) => {
 };
 
 export const getGrievanceTimeline = (id: string) => {
-  return apiClient<TimelineEvent[]>(`/grievances/${id}/timeline`);
+  return apiClient<Array<{
+    id: string;
+    grievanceId: string;
+    actorId?: string;
+    eventType: string;
+    oldStatus?: TimelineEvent['status'];
+    newStatus?: TimelineEvent['status'];
+    publicMessage?: string;
+    createdAt: string;
+  }>>(`/grievances/${id}/timeline`).then(events => events.map(event => ({
+    id: event.id,
+    grievanceId: event.grievanceId,
+    type: event.eventType === 'CREATED' ? 'CITIZEN' as const : event.eventType === 'ANALYZED' ? 'SYSTEM' as const : 'STAFF' as const,
+    status: event.newStatus || event.oldStatus || 'RECEIVED',
+    note: event.publicMessage,
+    createdAt: event.createdAt
+  })));
 };

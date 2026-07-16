@@ -26,11 +26,16 @@ public class MetaController {
         meta.put("roles", List.of("CITIZEN", "OFFICER", "DEPARTMENT_HEAD", "ADMIN", "COMMISSIONER"));
 
         meta.put("departments", List.of(
-            Map.of("code", "ELECTRICITY", "name", "Electricity Department"),
-            Map.of("code", "WATER", "name", "Water Department"),
             Map.of("code", "ROADS", "name", "Roads Department"),
+            Map.of("code", "WATER", "name", "Water Supply Department"),
+            Map.of("code", "ELECTRICITY", "name", "Electricity Department"),
             Map.of("code", "SANITATION", "name", "Sanitation Department"),
-            Map.of("code", "PUBLIC_SERVICES", "name", "Public Services")
+            Map.of("code", "PUBLIC_SAFETY", "name", "Public Safety & Law Enforcement"),
+            Map.of("code", "PARKS_HORTICULTURE", "name", "Parks & Horticulture Department"),
+            Map.of("code", "HEALTH", "name", "Health Department"),
+            Map.of("code", "BUILDING_URBAN_PLANNING", "name", "Building & Urban Planning Department"),
+            Map.of("code", "TRANSPORT", "name", "Transport Department"),
+            Map.of("code", "PUBLIC_SERVICES", "name", "Other / General Grievances")
         ));
 
         meta.put("statuses", List.of(

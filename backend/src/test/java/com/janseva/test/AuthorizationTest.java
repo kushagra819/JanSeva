@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.janseva.dto.*;
 import com.janseva.entity.User;
 import com.janseva.repository.UserRepository;
+import com.janseva.repository.GrievanceRepository;
 import com.janseva.service.AuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,7 @@ public class AuthorizationTest {
     @Autowired private ObjectMapper objectMapper;
     @Autowired private UserRepository userRepo;
     @Autowired private AuthService authService;
+    @Autowired private GrievanceRepository grievanceRepo;
 
     private String citizenToken;
     private String citizen2Token;
@@ -93,6 +95,34 @@ public class AuthorizationTest {
                 .header("Authorization", "Bearer " + officerToken)
                 .param("departmentCode", "WATER"))
                 .andExpect(status().isOk()); // Returns ok but filtered to ROADS only
+    }
+
+    @Test
+    void officerCannotOpenOtherDepartmentComplaintById() throws Exception {
+        CreateGrievanceRequest req = new CreateGrievanceRequest();
+        req.text = "A major water pipe has burst and water is overflowing.";
+
+        MvcResult result = mockMvc.perform(post("/api/v1/grievances")
+                .header("Authorization", "Bearer " + citizenToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andReturn();
+        java.util.UUID grievanceId = java.util.UUID.fromString(
+                objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asText());
+        var grievance = grievanceRepo.findById(grievanceId).orElseThrow();
+        grievance.departmentCode = "WATER";
+        grievanceRepo.save(grievance);
+
+        mockMvc.perform(get("/api/v1/grievances/" + grievanceId)
+                .header("Authorization", "Bearer " + officerToken))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/grievances/" + grievanceId + "/timeline")
+                .header("Authorization", "Bearer " + officerToken))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/grievances/" + grievanceId + "/attachments")
+                .header("Authorization", "Bearer " + officerToken))
+                .andExpect(status().isForbidden());
     }
 
     // 3. Citizen cannot use staff endpoints

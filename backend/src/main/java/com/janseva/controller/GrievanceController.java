@@ -2,6 +2,8 @@ package com.janseva.controller;
 
 import com.janseva.dto.AiAnalysisResponse;
 import com.janseva.dto.CreateGrievanceRequest;
+import com.janseva.dto.GrievanceResponse;
+import com.janseva.dto.AttachmentResponse;
 import com.janseva.entity.Attachment;
 import com.janseva.entity.Grievance;
 import com.janseva.entity.TimelineEvent;
@@ -41,31 +43,30 @@ public class GrievanceController {
     }
 
     @PostMapping
-    public Grievance create(Authentication auth, @Valid @RequestBody CreateGrievanceRequest req) {
-        return service.create(UUID.fromString(auth.getName()), req);
+    public GrievanceResponse create(Authentication auth, @Valid @RequestBody CreateGrievanceRequest req) {
+        return service.toResponse(service.create(UUID.fromString(auth.getName()), req));
     }
 
     @GetMapping("/mine")
-    public List<Grievance> getMine(Authentication auth) {
-        return service.getMine(UUID.fromString(auth.getName()));
+    public List<GrievanceResponse> getMine(Authentication auth) {
+        return service.getMine(UUID.fromString(auth.getName())).stream().map(service::toResponse).toList();
     }
 
     @GetMapping("/{id}")
-    public Grievance getById(Authentication auth, @PathVariable UUID id) {
+    public GrievanceResponse getById(Authentication auth, @PathVariable UUID id) {
         UUID callerId = UUID.fromString(auth.getName());
         Grievance g = service.getById(id, callerId);
-
-        // If citizen, enforce ownership
-        if (isCitizen(auth) && !callerId.equals(g.citizenId)) {
-            throw new ApiException("FORBIDDEN", HttpStatus.FORBIDDEN, "You do not own this complaint.");
-        }
-        return g;
+        authorizeAccess(auth, g);
+        return service.toResponse(g);
     }
 
     @PostMapping("/{id}/analyze")
     public AiAnalysisResponse analyze(Authentication auth, @PathVariable UUID id,
                                        @RequestBody Map<String, String> body) {
         UUID callerId = UUID.fromString(auth.getName());
+        Grievance grievance = grievanceRepo.findById(id)
+            .orElseThrow(() -> new ApiException("NOT_FOUND", HttpStatus.NOT_FOUND, "Grievance not found."));
+        authorizeAccess(auth, grievance);
         return service.analyze(id, body.get("text"), callerId);
     }
 
@@ -73,14 +74,9 @@ public class GrievanceController {
     public List<TimelineEvent> getTimeline(Authentication auth, @PathVariable UUID id) {
         UUID callerId = UUID.fromString(auth.getName());
 
-        // Ownership check for citizens
-        if (isCitizen(auth)) {
-            Grievance g = grievanceRepo.findById(id)
-                .orElseThrow(() -> new ApiException("NOT_FOUND", HttpStatus.NOT_FOUND, "Grievance not found."));
-            if (!callerId.equals(g.citizenId)) {
-                throw new ApiException("FORBIDDEN", HttpStatus.FORBIDDEN, "You do not own this complaint.");
-            }
-        }
+        Grievance grievance = grievanceRepo.findById(id)
+            .orElseThrow(() -> new ApiException("NOT_FOUND", HttpStatus.NOT_FOUND, "Grievance not found."));
+        authorizeAccess(auth, grievance);
 
         return timelineRepo.findByGrievanceId(id);
     }
@@ -91,9 +87,7 @@ public class GrievanceController {
         Grievance g = grievanceRepo.findById(id)
             .orElseThrow(() -> new ApiException("NOT_FOUND", HttpStatus.NOT_FOUND, "Grievance not found."));
 
-        if (isCitizen(auth) && !callerId.equals(g.citizenId)) {
-            throw new ApiException("FORBIDDEN", HttpStatus.FORBIDDEN, "You do not own this complaint.");
-        }
+        authorizeAccess(auth, g);
 
         // Return stored analysis data from grievance
         AiAnalysisResponse resp = new AiAnalysisResponse();
@@ -102,6 +96,9 @@ public class GrievanceController {
         resp.taxonomyCode = g.taxonomyCode;
         resp.confidence = g.confidence != null ? g.confidence.doubleValue() : null;
         resp.priority = g.priority;
+        resp.detectedLanguage = service.getDetectedLanguage(g);
+        resp.sentiment = service.getSentiment(g);
+        resp.severityScore = "EMERGENCY".equals(g.priority) ? 90 : "HIGH".equals(g.priority) ? 70 : 35;
         return resp;
     }
 
@@ -116,25 +113,23 @@ public class GrievanceController {
         Grievance g = grievanceRepo.findById(id)
             .orElseThrow(() -> new ApiException("NOT_FOUND", HttpStatus.NOT_FOUND, "Grievance not found."));
 
-        if (isCitizen(auth) && !callerId.equals(g.citizenId)) {
-            throw new ApiException("FORBIDDEN", HttpStatus.FORBIDDEN, "You do not own this complaint.");
-        }
+        authorizeAccess(auth, g);
 
         return fileService.upload(id, callerId, file);
     }
 
     @GetMapping("/{id}/attachments")
-    public List<Attachment> listAttachments(Authentication auth, @PathVariable UUID id) {
+    public List<AttachmentResponse> listAttachments(Authentication auth, @PathVariable UUID id) {
         UUID callerId = UUID.fromString(auth.getName());
 
         Grievance g = grievanceRepo.findById(id)
             .orElseThrow(() -> new ApiException("NOT_FOUND", HttpStatus.NOT_FOUND, "Grievance not found."));
 
-        if (isCitizen(auth) && !callerId.equals(g.citizenId)) {
-            throw new ApiException("FORBIDDEN", HttpStatus.FORBIDDEN, "You do not own this complaint.");
-        }
+        authorizeAccess(auth, g);
 
-        return fileService.listByGrievance(id);
+        return fileService.listByGrievance(id).stream()
+            .map(a -> new AttachmentResponse(a.id, a.mimeType, a.sizeBytes, a.createdAt))
+            .toList();
     }
 
     @GetMapping("/{grievanceId}/attachments/{attachmentId}")
@@ -148,6 +143,9 @@ public class GrievanceController {
         String callerDept = getDeptFromAuth(auth);
 
         Attachment a = fileService.getAttachment(attachmentId);
+        if (!grievanceId.equals(a.grievanceId)) {
+            throw new ApiException("NOT_FOUND", HttpStatus.NOT_FOUND, "Attachment not found.");
+        }
         byte[] data = fileService.download(attachmentId, callerId, callerRole, callerDept);
 
         HttpHeaders headers = new HttpHeaders();
@@ -162,6 +160,24 @@ public class GrievanceController {
         return auth.getAuthorities().stream()
             .map(GrantedAuthority::getAuthority)
             .anyMatch(a -> a.equals("ROLE_CITIZEN"));
+    }
+
+    private void authorizeAccess(Authentication auth, Grievance grievance) {
+        UUID callerId = UUID.fromString(auth.getName());
+        String role = getRoleFromAuth(auth);
+        if ("CITIZEN".equals(role)) {
+            if (grievance.citizenId == null || !callerId.equals(grievance.citizenId)) {
+                throw new ApiException("FORBIDDEN", HttpStatus.FORBIDDEN, "You do not own this complaint.");
+            }
+            return;
+        }
+        if ("ADMIN".equals(role) || "COMMISSIONER".equals(role)) return;
+        String callerDepartment = getDeptFromAuth(auth);
+        if (!("OFFICER".equals(role) || "DEPARTMENT_HEAD".equals(role))
+                || callerDepartment == null || !callerDepartment.equals(grievance.departmentCode)) {
+            throw new ApiException("FORBIDDEN", HttpStatus.FORBIDDEN,
+                    "This complaint belongs to another department.");
+        }
     }
 
     private String getRoleFromAuth(Authentication auth) {

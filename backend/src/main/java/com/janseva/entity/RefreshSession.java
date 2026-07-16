@@ -8,6 +8,7 @@ import java.util.UUID;
 public class RefreshSession {
     @Id @GeneratedValue public UUID id;
     public UUID userId;
+    @Column(columnDefinition = "char(64)")
     public String tokenHash;
     public OffsetDateTime expiresAt;
     public OffsetDateTime revokedAt;

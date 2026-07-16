@@ -24,11 +24,12 @@ services:
       - DB_URL=jdbc:postgresql://postgres:5432/janseva
       - DB_USERNAME=${DB_USERNAME:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=none
       - JWT_SECRET=${JWT_SECRET:-supersecretkey32byteslongmin1234}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY:-12345678901234567890123456789012}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@janseva.gov}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-Admin123!}
-      - AI_PROVIDER=http
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-Admin123!@#pass}
+      - AI_PROVIDER=${AI_PROVIDER:-http}
       - AI_CLASSIFIER_URL=http://ai:8000/analyze
       - AI_AUTO_ROUTE_THRESHOLD=0.85
       - AI_REVIEW_THRESHOLD=0.55
@@ -42,11 +43,36 @@ services:
       - evidence-volume:/data/uploads
 
   ai:
+    profiles: ["ai"]
     build:
       context: ./ai-service
     ports:
       - "8000:8000"
+    environment:
+      - STT_MODEL_SIZE=${STT_MODEL_SIZE:-small}
+      - STT_DEVICE=${STT_DEVICE:-cpu}
+      - STT_COMPUTE_TYPE=${STT_COMPUTE_TYPE:-int8}
+      - STT_MODEL_CACHE=/models
+      - STT_MAX_AUDIO_MB=15
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.5-flash}
+    volumes:
+      - stt-models:/models
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   pgdata:
   evidence-volume:
+  stt-models:

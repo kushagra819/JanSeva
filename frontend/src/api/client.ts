@@ -4,10 +4,22 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 export const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 
 let accessToken: string | null = null;
+let refreshToken: string | null = sessionStorage.getItem('janseva.refreshToken');
 
 export const setAccessToken = (token: string | null) => {
   accessToken = token;
 };
+
+export const setRefreshToken = (token: string | null) => {
+  refreshToken = token;
+  if (token) {
+    sessionStorage.setItem('janseva.refreshToken', token);
+  } else {
+    sessionStorage.removeItem('janseva.refreshToken');
+  }
+};
+
+export const getRefreshToken = () => refreshToken;
 
 export class FetchError extends Error {
   public status: number;
@@ -41,14 +53,17 @@ export const apiClient = async <T>(
     headers,
   });
 
-  if (response.status === 401 && endpoint !== '/auth/login' && endpoint !== '/auth/refresh') {
+  if (response.status === 401 && refreshToken && endpoint !== '/auth/login' && endpoint !== '/auth/refresh') {
     const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: 'POST'
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken })
     });
     
     if (refreshRes.ok) {
       const data = await refreshRes.json();
       setAccessToken(data.accessToken);
+      setRefreshToken(data.refreshToken);
       headers.set('Authorization', `Bearer ${accessToken}`);
       response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
@@ -56,6 +71,7 @@ export const apiClient = async <T>(
       });
     } else {
       setAccessToken(null);
+      setRefreshToken(null);
       window.dispatchEvent(new Event('auth:unauthorized'));
     }
   }

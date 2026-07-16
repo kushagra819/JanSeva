@@ -1,4 +1,6 @@
 fastapi
 uvicorn
-sentence-transformers
 pydantic
+faster-whisper
+python-multipart
+google-genai

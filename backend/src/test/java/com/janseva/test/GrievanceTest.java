@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.Map;
+import java.util.HashSet;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -145,5 +146,40 @@ public class GrievanceTest {
         String responseBody = analyzeResult.getResponse().getContentAsString();
         assertTrue(responseBody.contains("heuristic-fallback") || responseBody.contains("departmentCode"),
             "Should return a valid analysis response via fallback");
+    }
+
+    @Test
+    void citizenCanTrackMultipleIndependentGrievances() throws Exception {
+        var ids = new HashSet<String>();
+        var trackingCodes = new HashSet<String>();
+        for (int index = 0; index < 3; index++) {
+            CreateGrievanceRequest request = new CreateGrievanceRequest();
+            request.text = "Independent civic issue number " + index + " needs department attention.";
+            request.idempotencyKey = "multi-grievance-" + index;
+            MvcResult result = mockMvc.perform(post("/api/v1/grievances")
+                    .header("Authorization", "Bearer " + citizenToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            var response = objectMapper.readTree(result.getResponse().getContentAsString());
+            ids.add(response.get("id").asText());
+            trackingCodes.add(response.get("trackingCode").asText());
+        }
+
+        assertEquals(3, ids.size());
+        assertEquals(3, trackingCodes.size());
+        MvcResult mine = mockMvc.perform(get("/api/v1/grievances/mine")
+                .header("Authorization", "Bearer " + citizenToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        var mineResponse = objectMapper.readTree(mine.getResponse().getContentAsString());
+        for (String id : ids) {
+            assertTrue(mineResponse.findValuesAsText("id").contains(id));
+            mockMvc.perform(get("/api/v1/grievances/" + id + "/timeline")
+                    .header("Authorization", "Bearer " + citizenToken))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].grievanceId").value(id));
+        }
     }
 }

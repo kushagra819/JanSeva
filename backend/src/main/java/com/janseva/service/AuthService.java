@@ -202,7 +202,16 @@ public class AuthService {
         session.createdAt = OffsetDateTime.now();
         refreshRepo.save(session);
 
-        return new AuthResponse(accessToken, refreshToken);
+        UserResponse user = new UserResponse(
+            u.id.toString(),
+            u.name,
+            u.email,
+            u.role,
+            u.departmentCode,
+            u.active,
+            u.createdAt != null ? u.createdAt.toString() : null
+        );
+        return new AuthResponse(accessToken, refreshToken, user);
     }
 
     private void validatePasswordStrength(String password) {
