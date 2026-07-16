@@ -1,0 +1,36 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/janseva}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+  servlet:
+    multipart:
+      max-file-size: ${MAX_UPLOAD_MB:10}MB
+      max-request-size: ${MAX_UPLOAD_MB:10}MB
+
+janseva:
+  security:
+    jwt-secret: ${JWT_SECRET:supersecretkey32byteslongmin1234}
+    encryption-key: ${ENCRYPTION_KEY:12345678901234567890123456789012}
+  ai:
+    url: ${AI_CLASSIFIER_URL:http://localhost:8000/analyze}
+    provider: ${AI_PROVIDER:http}
+    auto-route-threshold: ${AI_AUTO_ROUTE_THRESHOLD:0.85}
+    review-threshold: ${AI_REVIEW_THRESHOLD:0.55}
+  upload:
+    dir: ${UPLOAD_DIRECTORY:./uploads}
+    max-mb: ${MAX_UPLOAD_MB:10}
+  admin:
+    email: ${ADMIN_EMAIL:admin@janseva.gov}
+    password: ${ADMIN_PASSWORD:Admin123!@#pass}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
